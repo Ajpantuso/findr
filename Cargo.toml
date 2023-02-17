@@ -4,6 +4,8 @@
 
 [package]
 name = "findr"
+authors = ["Andrew Pantuso <ajpantuso@gmail.com>"]
+description = "A cheap find knockoff in Rust"
 version = "0.1.0"
 edition = "2021"
 
