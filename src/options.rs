@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Andrew Pantuso <ajpantuso@gmail.com>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::filter::*;
 use clap::Parser;
 use regex::{self, Regex};

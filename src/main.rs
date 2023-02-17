@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Andrew Pantuso <ajpantuso@gmail.com>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 use clap::Parser;
 use findr::{self, options};
 use signal_hook::consts::signal::*;

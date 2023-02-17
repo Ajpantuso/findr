@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Andrew Pantuso <ajpantuso@gmail.com>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 use anyhow::{anyhow, Result};
 use std::error;
 use std::io::{self, Write};

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Andrew Pantuso <ajpantuso@gmail.com>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 use clap::ValueEnum;
 use core::str::FromStr;
 use parse_size::parse_size as _parse_size;
