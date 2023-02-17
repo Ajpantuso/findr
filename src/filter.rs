@@ -160,7 +160,7 @@ fn parse_group(s: &str) -> anyhow::Result<users::Group> {
     .ok_or_else(|| anyhow::anyhow!("invalid group '{}'", s))
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OctalFilter {
     Contains(u32),
     Equal(u32),
@@ -188,5 +188,36 @@ impl FromStr for OctalFilter {
         } else {
             Self::Equal(u32::from_str_radix(s, 8)?)
         })
+    }
+}
+
+#[cfg(test)]
+mod octal_filter_tests {
+    use super::OctalFilter;
+    use anyhow::{anyhow, Result};
+    use std::str::FromStr;
+    use test_case::test_case;
+
+    #[test_case("0777", Ok(OctalFilter::Equal(0o777)) ; "equal rwx all")]
+    #[test_case("+0440", Ok(OctalFilter::Contains(0o440)) ; "contains r ug")]
+    #[test_case("~0006", Ok(OctalFilter::NotContains(0o006)) ; "not contains rw o")]
+    #[test_case("-0000", Err(anyhow!("")) ; "bad prefix")]
+    #[test_case("0999", Err(anyhow!("")) ; "bad octal integer")]
+    fn from_str(s: &str, expected: Result<OctalFilter>) {
+        match expected {
+            Ok(f) => assert_eq!(f, OctalFilter::from_str(s).unwrap()),
+            Err(_) => assert!(OctalFilter::from_str(s).is_err()),
+        }
+    }
+
+    #[test_case(0o600, OctalFilter::Equal(0o600), true ; "equal matches")]
+    #[test_case(0o600, OctalFilter::Equal(0o700), false ; "equal does not match")]
+    #[test_case(0o66600, OctalFilter::Equal(0o600), true ; "equal extended perms matches")]
+    #[test_case(0o600, OctalFilter::Contains(0o400), true ; "contains matches")]
+    #[test_case(0o600, OctalFilter::Contains(0o700), false ; "contains does not match")]
+    #[test_case(0o600, OctalFilter::NotContains(0o040), true ; "not_contains matches")]
+    #[test_case(0o600, OctalFilter::NotContains(0o700), false ; "not_contains does not match")]
+    fn matches(o: u32, f: OctalFilter, expected: bool) {
+        assert_eq!(expected, f.matches(o))
     }
 }
