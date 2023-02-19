@@ -78,10 +78,13 @@ impl<'a> Command<'a> {
         walker
     }
     fn matches_owner(&self, ent: &walkdir::DirEntry) -> Result<bool> {
-        self.options.owner.as_ref().map_or(Ok(true), |o| {
-            let meta = ent.metadata()?;
+        Ok(match &self.options.owner {
+            Some(f) => {
+                let meta = ent.metadata()?;
 
-            Ok(o.matches(meta.uid(), meta.gid()))
+                f.matches(meta.uid(), meta.gid())
+            }
+            None => true,
         })
     }
     fn matches_pattern(&self, ent: &walkdir::DirEntry) -> Result<bool> {
@@ -96,56 +99,63 @@ impl<'a> Command<'a> {
             || self.options.type_filters.iter().any(|t| t.matches(ent)))
     }
     fn matches_atime_filters(&self, ent: &walkdir::DirEntry) -> Result<bool> {
-        Ok(self.options.atime_filters.is_empty()
-            || self.options.atime_filters.iter().try_fold(true, |acc, t| {
-                let atime = ent.metadata()?.atime().try_into()?;
+        Ok(self.options.atime_filters.is_empty() || {
+            let atime = ent.metadata()?.atime().try_into()?;
 
-                t.matches(atime).map(|b| b && acc)
-            })?)
+            self.options
+                .atime_filters
+                .iter()
+                .try_fold(true, |acc, t| t.matches(atime).map(|b| b && acc))?
+        })
     }
     fn matches_ctime_filters(&self, ent: &walkdir::DirEntry) -> Result<bool> {
-        Ok(self.options.ctime_filters.is_empty()
-            || self.options.ctime_filters.iter().try_fold(true, |acc, t| {
-                let ctime = ent.metadata()?.ctime().try_into()?;
+        Ok(self.options.ctime_filters.is_empty() || {
+            let ctime = ent.metadata()?.ctime().try_into()?;
 
-                t.matches(ctime).map(|b| b && acc)
-            })?)
+            self.options
+                .ctime_filters
+                .iter()
+                .try_fold(true, |acc, t| t.matches(ctime).map(|b| b && acc))?
+        })
     }
     fn matches_creation_time_filters(&self, ent: &walkdir::DirEntry) -> Result<bool> {
-        Ok(self.options.creation_time_filters.is_empty()
-            || self
-                .options
+        Ok(self.options.creation_time_filters.is_empty() || {
+            let creation_time = ent
+                .metadata()?
+                .created()?
+                .duration_since(time::UNIX_EPOCH)?
+                .as_secs();
+
+            self.options
                 .creation_time_filters
                 .iter()
-                .try_fold(true, |acc, t| {
-                    let creation_time = ent
-                        .metadata()?
-                        .created()?
-                        .duration_since(time::UNIX_EPOCH)?
-                        .as_secs();
-
-                    t.matches(creation_time).map(|b| b && acc)
-                })?)
+                .try_fold(true, |acc, t| t.matches(creation_time).map(|b| b && acc))?
+        })
     }
     fn matches_mode(&self, ent: &walkdir::DirEntry) -> Result<bool> {
-        self.options
-            .mode
-            .as_ref()
-            .map_or(Ok(true), |m| Ok(m.matches(ent.metadata()?.mode())))
+        Ok(match &self.options.mode {
+            Some(f) => f.matches(ent.metadata()?.mode()),
+            None => true,
+        })
     }
     fn matches_mtime_filters(&self, ent: &walkdir::DirEntry) -> Result<bool> {
-        Ok(self.options.mtime_filters.is_empty()
-            || self.options.mtime_filters.iter().try_fold(true, |acc, f| {
-                let mtime = ent.metadata()?.mtime().try_into()?;
+        Ok(self.options.mtime_filters.is_empty() || {
+            let mtime = ent.metadata()?.mtime().try_into()?;
 
-                f.matches(mtime).map(|b| b && acc)
-            })?)
+            self.options
+                .mtime_filters
+                .iter()
+                .try_fold(true, |acc, f| f.matches(mtime).map(|b| b && acc))?
+        })
     }
     fn matches_size_filters(&self, ent: &walkdir::DirEntry) -> Result<bool> {
-        Ok(self.options.size_filters.is_empty()
-            || self.options.size_filters.iter().try_fold(true, |acc, f| {
-                Ok::<bool, anyhow::Error>(f.matches(ent.metadata()?.size()) && acc)
-            })?)
+        Ok(self.options.size_filters.is_empty() || {
+            let size = ent.metadata()?.size();
+
+            self.options.size_filters.iter().try_fold(true, |acc, f| {
+                Ok::<bool, anyhow::Error>(f.matches(size) && acc)
+            })?
+        })
     }
     fn print_error(&self, err: &mut impl Write, e: impl AsRef<dyn error::Error>) -> Result<()> {
         if self.options.show_errors {
