@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::entry::Entry;
 use clap::ValueEnum;
 use is_executable::is_executable;
 use std::os::unix::fs::FileTypeExt;
-use walkdir::DirEntry;
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum TypeFilter {
@@ -24,7 +24,7 @@ pub enum TypeFilter {
 }
 
 impl TypeFilter {
-    pub fn matches(&self, ent: &DirEntry) -> bool {
+    pub fn matches(&self, ent: &impl Entry) -> bool {
         let ftype = ent.file_type();
 
         match self {
