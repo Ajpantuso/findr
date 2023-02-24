@@ -41,75 +41,48 @@ impl<'a> Command<'a> {
                 u => Err(anyhow!(Error::Terminated(u))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_pattern(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_pattern(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_owner(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_owner(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_mode(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_mode(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_type_filters(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_type_filters(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_size_filters(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_size_filters(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_atime_filters(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_atime_filters(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_ctime_filters(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_ctime_filters(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_creation_time_filters(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_creation_time_filters(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .filter_map(|r| match r {
-                Ok(ent) => match self.matches_mtime_filters(&ent) {
-                    Ok(true) => Some(Ok(ent)),
-                    Ok(false) => None,
-                    Err(e) => Some(Err(e)),
-                },
+                Ok(ent) => filter_bool_result(self.matches_mtime_filters(&ent), ent),
+                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
                 Err(e) => Some(Err(anyhow!(e))),
             })
             .try_for_each(|r| -> Result<()> {
@@ -217,6 +190,14 @@ impl<'a> Command<'a> {
         }
 
         Ok(())
+    }
+}
+
+fn filter_bool_result<T>(res: Result<bool>, val: T) -> Option<Result<T>> {
+    match res {
+        Ok(true) => Some(Ok(val)),
+        Ok(false) => None,
+        Err(e) => Some(Err(e)),
     }
 }
 
