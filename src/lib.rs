@@ -91,9 +91,7 @@ impl<'a> Command<'a> {
                     Err(e) if e.is::<Error>() => Err(e),
                     Err(e) => self.print_error(&mut err, e),
                 }
-            })?;
-
-        Ok(())
+            })
     }
     fn new_walker(&self, path: impl AsRef<path::Path>) -> walkdir::WalkDir {
         let mut walker = WalkDir::new(path);
