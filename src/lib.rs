@@ -88,13 +88,8 @@ impl<'a> Command<'a> {
             .try_for_each(|r| -> Result<()> {
                 match r {
                     Ok(ent) => print_dirent(&mut out, ent),
-                    Err(e) => {
-                        if e.is::<Error>() {
-                            return Err(e);
-                        }
-
-                        self.print_error(&mut err, e)
-                    }
+                    Err(e) if e.is::<Error>() => Err(e),
+                    Err(e) => self.print_error(&mut err, e),
                 }
             })?;
 
