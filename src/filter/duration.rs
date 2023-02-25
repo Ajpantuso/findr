@@ -13,13 +13,13 @@ pub enum DurationFilter {
 }
 
 impl DurationFilter {
-    pub fn matches(&self, point_in_time: u64) -> anyhow::Result<bool> {
+    pub fn matches(&self, instant: u64) -> anyhow::Result<bool> {
         let now = time::SystemTime::now().duration_since(time::UNIX_EPOCH)?;
-        let point_in_time = time::Duration::from_secs(point_in_time);
+        let instant = time::Duration::from_secs(instant);
 
         Ok(match self {
-            Self::Less(d) => now - *d < point_in_time,
-            Self::Greater(d) => now - *d > point_in_time,
+            Self::Less(d) => now - *d < instant,
+            Self::Greater(d) => now - *d > instant,
         })
     }
 }
@@ -60,8 +60,8 @@ mod tests {
     #[test_case(DurationFilter::Less(DAY), days_ago(0), Ok(true) ; "less than one day")]
     #[test_case(DurationFilter::Greater(DAY), days_ago(0), Ok(false) ; "not greater than one day")]
     #[test_case(DurationFilter::Less(DAY), days_ago(2), Ok(false) ; "not less than one day")]
-    fn matches(f: DurationFilter, point_in_time: u64, expected: anyhow::Result<bool>) {
-        let result = f.matches(point_in_time);
+    fn matches(f: DurationFilter, instant: u64, expected: anyhow::Result<bool>) {
+        let result = f.matches(instant);
 
         match expected {
             Ok(b) => assert_eq!(b, result.unwrap()),
