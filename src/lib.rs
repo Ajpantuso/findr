@@ -40,51 +40,15 @@ impl<'a> Command<'a> {
                 0 => r.map(entry::EntryImpl::from).map_err(|e| anyhow!(e)),
                 u => Err(anyhow!(Error::Terminated(u))),
             })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_pattern(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_owner(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_mode(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_type_filters(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_size_filters(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_atime_filters(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_ctime_filters(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_creation_time_filters(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
-            .filter_map(|r| match r {
-                Ok(ent) => filter_bool_result(self.matches_mtime_filters(&ent), ent),
-                Err(e) if e.is::<anyhow::Error>() => Some(Err(e)),
-                Err(e) => Some(Err(anyhow!(e))),
-            })
+            .filter_map(curry_filter(|e| self.matches_pattern(e)))
+            .filter_map(curry_filter(|e| self.matches_owner(e)))
+            .filter_map(curry_filter(|e| self.matches_mode(e)))
+            .filter_map(curry_filter(|e| self.matches_type_filters(e)))
+            .filter_map(curry_filter(|e| self.matches_size_filters(e)))
+            .filter_map(curry_filter(|e| self.matches_atime_filters(e)))
+            .filter_map(curry_filter(|e| self.matches_ctime_filters(e)))
+            .filter_map(curry_filter(|e| self.matches_creation_time_filters(e)))
+            .filter_map(curry_filter(|e| self.matches_mtime_filters(e)))
             .try_for_each(|r| -> Result<()> {
                 match r {
                     Ok(ent) => print_dirent(&mut out, ent),
@@ -105,25 +69,25 @@ impl<'a> Command<'a> {
 
         walker
     }
-    fn matches_owner(&self, ent: &impl entry::Entry) -> Result<bool> {
+    fn matches_owner<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
         Ok(match &self.options.owner {
-            Some(f) => f.matches(ent.uid()?, ent.gid()?),
-            None => true,
+            Some(f) => f.matches(ent.uid()?, ent.gid()?).then_some(ent),
+            None => Some(ent),
         })
     }
-    fn matches_pattern(&self, ent: &impl entry::Entry) -> Result<bool> {
-        Ok(self
-            .options
-            .pattern
-            .as_ref()
-            .map_or(true, |p| p.is_match(&ent.path())))
+    fn matches_pattern<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
+        Ok(match &self.options.pattern {
+            Some(p) => p.is_match(&ent.path()).then_some(ent),
+            None => Some(ent),
+        })
     }
-    fn matches_type_filters(&self, ent: &impl entry::Entry) -> Result<bool> {
-        Ok(self.options.type_filters.is_empty()
-            || self.options.type_filters.iter().any(|t| t.matches(ent)))
+    fn matches_type_filters<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
+        Ok((self.options.type_filters.is_empty()
+            || self.options.type_filters.iter().any(|t| t.matches(&ent)))
+        .then_some(ent))
     }
-    fn matches_atime_filters(&self, ent: &impl entry::Entry) -> Result<bool> {
-        Ok(self.options.atime_filters.is_empty() || {
+    fn matches_atime_filters<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
+        Ok((self.options.atime_filters.is_empty() || {
             let atime = ent.atime()?;
 
             self.options
@@ -131,9 +95,10 @@ impl<'a> Command<'a> {
                 .iter()
                 .try_fold(true, |acc, t| t.matches(atime).map(|b| b && acc))?
         })
+        .then_some(ent))
     }
-    fn matches_ctime_filters(&self, ent: &impl entry::Entry) -> Result<bool> {
-        Ok(self.options.ctime_filters.is_empty() || {
+    fn matches_ctime_filters<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
+        Ok((self.options.ctime_filters.is_empty() || {
             let ctime = ent.ctime()?;
 
             self.options
@@ -141,9 +106,10 @@ impl<'a> Command<'a> {
                 .iter()
                 .try_fold(true, |acc, t| t.matches(ctime).map(|b| b && acc))?
         })
+        .then_some(ent))
     }
-    fn matches_creation_time_filters(&self, ent: &impl entry::Entry) -> Result<bool> {
-        Ok(self.options.creation_time_filters.is_empty() || {
+    fn matches_creation_time_filters<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
+        Ok((self.options.creation_time_filters.is_empty() || {
             let creation_time = ent.created_time()?;
 
             self.options
@@ -151,15 +117,16 @@ impl<'a> Command<'a> {
                 .iter()
                 .try_fold(true, |acc, t| t.matches(creation_time).map(|b| b && acc))?
         })
+        .then_some(ent))
     }
-    fn matches_mode(&self, ent: &impl entry::Entry) -> Result<bool> {
+    fn matches_mode<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
         Ok(match &self.options.mode {
-            Some(f) => f.matches(ent.mode()?),
-            None => true,
+            Some(f) => f.matches(ent.mode()?).then_some(ent),
+            None => Some(ent),
         })
     }
-    fn matches_mtime_filters(&self, ent: &impl entry::Entry) -> Result<bool> {
-        Ok(self.options.mtime_filters.is_empty() || {
+    fn matches_mtime_filters<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
+        Ok((self.options.mtime_filters.is_empty() || {
             let mtime = ent.mtime()?;
 
             self.options
@@ -167,15 +134,17 @@ impl<'a> Command<'a> {
                 .iter()
                 .try_fold(true, |acc, f| f.matches(mtime).map(|b| b && acc))?
         })
+        .then_some(ent))
     }
-    fn matches_size_filters(&self, ent: &impl entry::Entry) -> Result<bool> {
-        Ok(self.options.size_filters.is_empty() || {
+    fn matches_size_filters<E: entry::Entry>(&self, ent: E) -> Result<Option<E>> {
+        Ok((self.options.size_filters.is_empty() || {
             let size = ent.size()?;
 
             self.options.size_filters.iter().try_fold(true, |acc, f| {
                 Ok::<bool, anyhow::Error>(f.matches(size) && acc)
             })?
         })
+        .then_some(ent))
     }
     fn print_error(&self, err: &mut impl Write, e: impl AsRef<dyn error::Error>) -> Result<()> {
         if self.options.show_errors {
@@ -186,10 +155,11 @@ impl<'a> Command<'a> {
     }
 }
 
-fn filter_bool_result<T>(res: Result<bool>, val: T) -> Option<Result<T>> {
-    match res {
-        Ok(true) => Some(Ok(val)),
-        Ok(false) => None,
+fn curry_filter<E: entry::Entry>(
+    f: impl Fn(E) -> Result<Option<E>>,
+) -> impl Fn(Result<E>) -> Option<Result<E>> {
+    move |r| match r {
+        Ok(ent) => f(ent).transpose(),
         Err(e) => Some(Err(e)),
     }
 }
