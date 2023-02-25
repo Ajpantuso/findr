@@ -93,7 +93,8 @@ impl<'a> Command<'a> {
             self.options
                 .atime_filters
                 .iter()
-                .try_fold(true, |acc, t| t.matches(atime).map(|b| b && acc))?
+                .map(|f| f.matches(atime))
+                .try_all()?
         })
         .then_some(ent))
     }
@@ -104,7 +105,8 @@ impl<'a> Command<'a> {
             self.options
                 .ctime_filters
                 .iter()
-                .try_fold(true, |acc, t| t.matches(ctime).map(|b| b && acc))?
+                .map(|f| f.matches(ctime))
+                .try_all()?
         })
         .then_some(ent))
     }
@@ -115,7 +117,8 @@ impl<'a> Command<'a> {
             self.options
                 .creation_time_filters
                 .iter()
-                .try_fold(true, |acc, t| t.matches(creation_time).map(|b| b && acc))?
+                .map(|f| f.matches(creation_time))
+                .try_all()?
         })
         .then_some(ent))
     }
@@ -132,7 +135,8 @@ impl<'a> Command<'a> {
             self.options
                 .mtime_filters
                 .iter()
-                .try_fold(true, |acc, f| f.matches(mtime).map(|b| b && acc))?
+                .map(|f| f.matches(mtime))
+                .try_all()?
         })
         .then_some(ent))
     }
@@ -140,9 +144,7 @@ impl<'a> Command<'a> {
         Ok((self.options.size_filters.is_empty() || {
             let size = ent.size()?;
 
-            self.options.size_filters.iter().try_fold(true, |acc, f| {
-                Ok::<bool, anyhow::Error>(f.matches(size) && acc)
-            })?
+            self.options.size_filters.iter().all(|f| f.matches(size))
         })
         .then_some(ent))
     }
@@ -166,4 +168,20 @@ fn curry_filter<E: entry::Entry>(
 
 fn print_dirent(out: &mut impl Write, ent: impl entry::Entry) -> Result<()> {
     Ok(writeln!(out, "{}", ent.path())?)
+}
+
+trait TryBoolExt {
+    fn try_all(&mut self) -> Result<bool>;
+}
+
+impl<I: Iterator<Item = Result<bool>>> TryBoolExt for I {
+    fn try_all(&mut self) -> Result<bool> {
+        for b in self {
+            if !b? {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
 }
