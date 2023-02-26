@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use clap::Parser;
+use clap::{crate_name, Parser};
 use findr::{self, options};
 use signal_hook::consts::signal::*;
 use signal_hook::flag as signal_flag;
@@ -24,6 +24,11 @@ fn main() -> io::Result<()> {
         Err(e) => match e.downcast::<findr::Error>() {
             Ok(e) => match e {
                 findr::Error::Terminated(u) => (u + SIG_EXIT_MARKER).try_into().unwrap(),
+                findr::Error::InvalidRootDir(e) => {
+                    eprintln!("{}: {}", crate_name!(), e);
+
+                    1
+                }
             },
             Err(e) => {
                 eprintln!("{e}");

@@ -22,6 +22,8 @@ pub struct Command<'a> {
 pub enum Error {
     #[error("terminated")]
     Terminated(usize),
+    #[error("invalid root dir: {0}")]
+    InvalidRootDir(#[from] walkdir::Error),
 }
 
 impl<'a> Command<'a> {
@@ -37,7 +39,10 @@ impl<'a> Command<'a> {
             .iter()
             .flat_map(|p| self.new_walker(p))
             .map(|r| match term_sig.load(Ordering::Relaxed) {
-                0 => r.map(entry::EntryImpl::from).map_err(|e| anyhow!(e)),
+                0 => r.map(entry::EntryImpl::from).map_err(|e| match e.depth() {
+                    0 => anyhow!(Error::InvalidRootDir(e)),
+                    _ => anyhow!(e),
+                }),
                 u => Err(anyhow!(Error::Terminated(u))),
             })
             .filter_map(curry_filter(|e| self.matches_pattern(e)))
