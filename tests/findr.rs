@@ -7,28 +7,50 @@ mod findr {
     use anyhow::Result;
     use assert_cmd::Command;
     use predicates::prelude::*;
+    use std::collections::HashMap;
     use std::fs;
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
     use tempfile;
     use test_case::test_case;
 
-    #[test_case(&["--pattern=.+.md"], r"\./one/b.md" ; ".md files")]
-    #[test_case(&["--type=x"], r"\./a.txt" ; "executables")]
-    #[test_case(&["--type=l"], r"\./three/d.txt" ; "symlink")]
-    #[test_case(&["--mode=444"], r"\./one/two/c.txt" ; "readonly")]
-    #[test_case(&["--size=8"], r"\./one/b.md" ; "size == 8")]
-    fn valid(args: &[&str], expected: &str) -> Result<()> {
+    #[test_case(&[r"--pattern=\.md$"], &["./one/b.md"] ; ".md files")]
+    #[test_case(&["--type=d"], &[".", "./one", "./one/two", "./three"] ; "directories")]
+    #[test_case(&["--type=x"], &["./a.txt"] ; "executables")]
+    #[test_case(&["--type=l"], &["./three/d.txt"] ; "symlink")]
+    #[test_case(&["--mode=444"], &["./one/two/c.txt"] ; "readonly")]
+    #[test_case(&["--size=0"], &["./a.txt", "./one/two/c.txt"] ; "size equals 0")]
+    #[test_case(&["--type=f", "--type=l", "--size=+0"], &["./one/b.md", "./three/d.txt"] ; "files/symlinks with size greater than 0")]
+    #[test_case(&["--size=8"], &["./one/b.md"] ; "size equals 8")]
+    #[test_case(&["--max-depth=1"], &[".", "./a.txt", "./one", "./three"] ; "max-depth equals 0")]
+    #[test_case(&["--min-depth=3"], &["./one/two/c.txt"] ; "min-depth equals 3")]
+    fn valid(args: &[&str], expected: &[&str]) -> Result<()> {
         let dir = setup_root_dir()?;
 
         Command::cargo_bin(env!("CARGO_PKG_NAME"))?
             .current_dir(dir.path())
             .args(args)
             .assert()
-            .stdout(predicate::str::is_match(expected).unwrap())
+            .stdout(predicate::function(|out: &str| {
+                let stdout_lines = out.lines().collect::<Vec<&str>>();
+                let stdout_line_counts = count_lines(&stdout_lines);
+                let expected_line_counts = count_lines(expected);
+
+                stdout_line_counts == expected_line_counts
+            }))
             .success();
 
         Ok(dir.close()?)
+    }
+
+    fn count_lines<'a>(lines: &'a [&str]) -> HashMap<&'a str, usize> {
+        let mut counts: HashMap<&str, usize> = HashMap::new();
+
+        for l in lines {
+            counts.entry(l).and_modify(|n| *n += 1).or_default();
+        }
+
+        counts
     }
 
     #[test_case(&["dne"], "IO error for operation on dne: No such file or directory" ; "non-existent root directory")]
